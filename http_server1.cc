@@ -1,12 +1,13 @@
+#include <sys/stat.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <fcntl.h>
-#include <sys/stat.h>
+#include <unistd.h>
 
 #include "minet_socket.h"
 
-#define BUFSIZE      1024
+#define BUFSIZE 1024
 #define FILENAMESIZE 100
 
 int handle_connection(int);
@@ -18,6 +19,7 @@ int readnbytes (int, char *, int);
 int
 main(int argc, char ** argv)
 {
+    fprintf(stderr, "Starting server...\n");
 
     int server_port = -1;
     int sock        =  0;
@@ -46,6 +48,8 @@ main(int argc, char ** argv)
 	  exit(-1);
     }
 
+    fprintf(stderr, "Init succeeded\n");
+
     if (rc == -1) {
 	  fprintf(stderr, "Could not initialize Minet\n");
 	  exit(-1);
@@ -62,7 +66,7 @@ main(int argc, char ** argv)
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY; // Listen on any IP address 
-    addr.sin_port = server_port;
+    addr.sin_port = htons(server_port);
 
 
     /* bind listening socket */
@@ -77,12 +81,20 @@ main(int argc, char ** argv)
         exit(-3);
     }
 
+    fprintf(stderr, "Listening on port %d\n", server_port);
+    char *pwd = (char *) malloc(50);
+    pwd = getcwd(pwd, 50);
+    fprintf(stderr, "Current directory: %s\n", pwd);
+
     /* connection handling loop */
     while(1)
     {
         /* Accept connections */
         int c = minet_accept(sock, &addr);
+        fprintf(stderr, "Receieved request!\n");
         rc = handle_connection(c);
+        fprintf(stderr, "Request completed!\n");
+        minet_close(c);
     }
 }
 
@@ -93,7 +105,7 @@ handle_connection(int sock2)
     char   response_200[]  = "HTTP/1.0 200 OK\r\n"           \
 	                      "Content-type: text/plain\r\n"  \
 	                      "Content-length: ";
-    char   two_nl[]        = "\r\n\r\n";
+    char   two_nl[]        = " \r\n\r\n";
     char   response_404[] = "HTTP/1.0 404 FILE NOT FOUND\r\n" \
 	                      "Content-type: text/html\r\n\r\n"		     \
 	                      "<html><body bgColor=black text=white>\n"	     \
@@ -104,36 +116,41 @@ handle_connection(int sock2)
                             "<html><body bgColor=black text=white>\n"	     \
                             "<h2>405 METHOD NOT ALLOWED - Only get requests are accepted.</h2>\n"
                             "</body></html>\n";
-    
-    char *response;
+
 
     // Buffer for the requests
-    char *buf = (new char[BUFSIZE])[0];
+    char *buf = (char *) malloc(BUFSIZE);
     int bytesread;
     int i;
+
 
     bytesread = minet_read(sock2, buf, BUFSIZE);
 
     // make everything all-caps
+    // no, we don't want to do this.
+    /*
     for (i = 0; i < bytesread; i++) {
         if (islower(buf[i])) {
             buf[i] = toupper(buf[i]);
         }
-    }
+    } */
     
     /* first read loop -- get request and headers*/
     const char *delims = " "; // use space as delimiter
 
-    char *method = strtok(&buf, delims);
-    char *resource = strtok(&buf, delims);
-    char *version = strtok(&buf, delims); // should almost always be HTTP/1.0
+    char *method = strtok(buf, delims);
+    char *resource = strtok(NULL, delims);
+    //char *version = strtok(buf, delims); // should almost always be HTTP/1.0
+
+    fprintf(stderr, "Method: %s\n", method);
+    fprintf(stderr, "Resource: %s\n", resource);
     
 
     /* parse request to get file name */
     /* Assumption: this is a GET request and filename contains no spaces*/
     if (strcmp(method, "GET") != 0) {
         minet_write(sock2, response_405, sizeof(response_405));
-        minet_close(sock2);
+        free(buf);
         return -1;
     }
 
@@ -141,7 +158,7 @@ handle_connection(int sock2)
     FILE *fd = fopen(resource, "r");
     if (fd == NULL) {
         minet_write(sock2, response_404, sizeof(response_404));
-        minet_close(sock2);
+        free(buf);
         return -1;
     }
     else {
@@ -150,11 +167,23 @@ handle_connection(int sock2)
         //  Write response string
         //  Write all appropriate headers
         struct stat info;
-        int x = fstat(fileno(fd), &stat);
-        int file_len = (int) stat.st_size; // should be good unless the file is greater than 2^32 bytes
-        char size_buf[20]; // if the size is larger then I don't even know what to do
-        itoa(len, size_buf, 10);
+        int file_desc = fileno(fd);
+
+        fstat(file_desc, &info);
+        int file_len = (int) info.st_size; // should be good unless the file is greater than 2^32 bytes
+        char size_buf[10]; // if the size is larger then I don't even know what to do
+        for (int i = 0; i < 10; i++) {
+            size_buf[i] = 0;
+        }
+        sprintf(size_buf, "%d", file_len);
+        
         int size_len = strlen(size_buf);
+
+
+        fprintf(stderr, response_200);
+        fprintf(stderr, size_buf);
+        fprintf(stderr, two_nl);
+
 
         minet_write(sock2, response_200, sizeof(response_200));
         minet_write(sock2, size_buf, size_len);
@@ -162,12 +191,17 @@ handle_connection(int sock2)
         
         //  Read file into memory
         //  Write file to minet socket
-        char *file_contents = (char *) malloc(size_len + 1);
+        char *file_contents = (char *) malloc(file_len);
         fread(file_contents, 1, file_len, fd);
+
+        fprintf(stderr, file_contents);
+
         minet_write(sock2, file_contents, file_len);
-        minet_close(sock2);
+        //free(file_contents);
+        free(buf);
         return 1;
     }
 
+    free(buf);
     return -2; // should not be reached
 }

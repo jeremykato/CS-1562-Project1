@@ -45,7 +45,6 @@ int main(int argc, char * argv[]) {
     server_port = atoi(argv[3]);
     server_path = argv[4];
 
-
     memset(buf, 0, BUFSIZE + 1);
     
     /* initialize minet */
@@ -129,6 +128,10 @@ int main(int argc, char * argv[]) {
 	    exit(-1);
     }
 
+
+
+	fprintf(stderr, "Making some ways...\n");
+
     /* first read loop -- read headers */
     while ((rc = minet_read(sock, buf + datalen, BUFSIZE - datalen)) > 0) {
         datalen      += rc;  
@@ -140,6 +143,9 @@ int main(int argc, char * argv[]) {
             break;
         }
     }
+
+
+	fprintf(stderr, "Got headers...\n");
 
     
     if (rc < 0) {
@@ -165,6 +171,8 @@ int main(int argc, char * argv[]) {
     } else {
 	    fprintf(wheretoprint, "%s", endheaders); //print everything after headers
     }  
+
+	fprintf(stderr, "Making it further...\n"); //print everything read so far
 
     /* second read loop -- print out the rest of the response */
     while ((rc = minet_read(sock, buf, BUFSIZE)) != 0) {
