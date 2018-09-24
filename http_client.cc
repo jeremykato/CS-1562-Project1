@@ -165,6 +165,8 @@ int main(int argc, char * argv[]) {
     }
     bptr2[strlen(bptr2)] = ' '; //remove the '\0'
 
+	fprintf(stderr, "Past the headers...\n");
+
     /* print first part of response */
     if (!ok) {
 	    fprintf(wheretoprint, "%s", buf); //print everything read so far
