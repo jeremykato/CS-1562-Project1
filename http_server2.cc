@@ -174,8 +174,8 @@ handle_connection(int sock2)
     char *resource = strtok(NULL, delims);
     //char *version = strtok(buf, delims); // should almost always be HTTP/1.0
 
-    fprintf(stderr, "Method: %s\n", method);
-    fprintf(stderr, "Resource: %s\n", resource);
+    //fprintf(stderr, "Method: %s\n", method);
+    //fprintf(stderr, "Resource: %s\n", resource);
     
 
     /* parse request to get file name */
@@ -215,9 +215,9 @@ handle_connection(int sock2)
 
 
 
-        fprintf(stderr, response_200);
-        fprintf(stderr, size_buf);
-        fprintf(stderr, two_nl);
+        //fprintf(stderr, response_200);
+        //fprintf(stderr, size_buf);
+        //fprintf(stderr, two_nl);
 
 
         //int one = minet_write(sock2, response_200, sizeof(response_200));
@@ -232,7 +232,7 @@ handle_connection(int sock2)
         rewind(fd);
         fread(file_contents, 1, file_len, fd);
 
-        fprintf(stderr, file_contents);
+        //fprintf(stderr, file_contents);
 
         // Found out if I don't write everything in one go, the client will segfault. Woo.
 
