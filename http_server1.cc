@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "minet_socket.h"
 
@@ -105,7 +106,7 @@ handle_connection(int sock2)
     char   response_200[]  = "HTTP/1.0 200 OK\r\n"           \
 	                      "Content-type: text/plain\r\n"  \
 	                      "Content-length: ";
-    char   two_nl[]        = " \r\n\r\n";
+    char   two_nl[]        = "\r\n\r\n";
     char   response_404[] = "HTTP/1.0 404 FILE NOT FOUND\r\n" \
 	                      "Content-type: text/html\r\n\r\n"		     \
 	                      "<html><body bgColor=black text=white>\n"	     \
@@ -155,7 +156,7 @@ handle_connection(int sock2)
     }
 
     // Attempt to open resource
-    FILE *fd = fopen(resource, "r");
+    FILE *fd = fopen(resource, "rb");
     if (fd == NULL) {
         minet_write(sock2, response_404, sizeof(response_404));
         free(buf);
@@ -180,24 +181,37 @@ handle_connection(int sock2)
         int size_len = strlen(size_buf);
 
 
+
         fprintf(stderr, response_200);
         fprintf(stderr, size_buf);
         fprintf(stderr, two_nl);
 
 
-        minet_write(sock2, response_200, sizeof(response_200));
-        minet_write(sock2, size_buf, size_len);
-        minet_write(sock2, two_nl, sizeof(two_nl));
+        //int one = minet_write(sock2, response_200, sizeof(response_200));
+        //int two = minet_write(sock2, size_buf, size_len);
+        //int three = minet_write(sock2, two_nl, sizeof(two_nl));
+
+        //fprintf(stderr, "1) %d 2) %d 3) %d", one, two, three);
         
         //  Read file into memory
         //  Write file to minet socket
-        char *file_contents = (char *) malloc(file_len);
+        char *file_contents = (char *) malloc(file_len + 1);
+        rewind(fd);
         fread(file_contents, 1, file_len, fd);
 
         fprintf(stderr, file_contents);
 
-        minet_write(sock2, file_contents, file_len);
-        //free(file_contents);
+        // Found out if I don't write everything in one go, the client will segfault. Woo.
+
+        int final_size = sizeof(response_200) + size_len + sizeof(two_nl) + file_len;
+        char* final_buffer = (char *) malloc(final_size);
+        strcat(final_buffer, response_200);
+        strcat(final_buffer, size_buf);
+        strcat(final_buffer, two_nl);
+        strcat(final_buffer, file_contents);
+
+        minet_write(sock2, final_buffer, final_size);
+        free(final_buffer);
         free(buf);
         return 1;
     }
