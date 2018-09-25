@@ -95,7 +95,6 @@ main(int argc, char ** argv)
         fprintf(stderr, "Receieved request!\n");
         rc = handle_connection(c);
         fprintf(stderr, "Request completed!\n");
-        minet_close(c);
     }
 }
 
@@ -143,8 +142,8 @@ handle_connection(int sock2)
     char *resource = strtok(NULL, delims);
     //char *version = strtok(buf, delims); // should almost always be HTTP/1.0
 
-    fprintf(stderr, "Method: %s\n", method);
-    fprintf(stderr, "Resource: %s\n", resource);
+    //fprintf(stderr, "Method: %s\n", method);
+    //fprintf(stderr, "Resource: %s\n", resource);
     
 
     /* parse request to get file name */
@@ -152,6 +151,7 @@ handle_connection(int sock2)
     if (strcmp(method, "GET") != 0) {
         minet_write(sock2, response_405, sizeof(response_405));
         free(buf);
+        minet_close(sock2);
         return -1;
     }
 
@@ -160,6 +160,7 @@ handle_connection(int sock2)
     if (fd == NULL) {
         minet_write(sock2, response_404, sizeof(response_404));
         free(buf);
+        minet_close(sock2);
         return -1;
     }
     else {
@@ -182,9 +183,9 @@ handle_connection(int sock2)
 
 
 
-        fprintf(stderr, response_200);
-        fprintf(stderr, size_buf);
-        fprintf(stderr, two_nl);
+        //fprintf(stderr, response_200);
+        //fprintf(stderr, size_buf);
+        //fprintf(stderr, two_nl);
 
 
         //int one = minet_write(sock2, response_200, sizeof(response_200));
@@ -199,7 +200,7 @@ handle_connection(int sock2)
         rewind(fd);
         fread(file_contents, 1, file_len, fd);
 
-        fprintf(stderr, file_contents);
+        //fprintf(stderr, file_contents);
 
         // Found out if I don't write everything in one go, the client will segfault. Woo.
 
@@ -213,9 +214,11 @@ handle_connection(int sock2)
         minet_write(sock2, final_buffer, final_size);
         free(final_buffer);
         free(buf);
+        minet_close(sock2);
         return 1;
     }
 
     free(buf);
+    minet_close(sock2);
     return -2; // should not be reached
 }
